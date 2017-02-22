@@ -5,110 +5,104 @@ Classifier for functional mat input
 @author: HGY
 """
 
-from __future__ import division
-import pandas as pd
 import numpy as np
-from scipy.stats import spearmanr
-from scipy.stats import pearsonr
+import pickle
+import pandas as pd
+from sklearn.model_selection import KFold
 from sklearn.feature_selection import SelectPercentile, f_regression
-from sklearn.metrics import mean_squared_error
 from sklearn.svm import SVC
 from sklearn.metrics import recall_score
-from sklearn.linear_model import LogisticRegression as LR
-from sklearn.metrics import confusion_matrix
-from math import sqrt
+from sklearn.metrics import accuracy_score
 import scipy.io
-import matplotlib.pyplot as plt
 
 
-##--------------------  Variable  Settings  --------------------
-VALID = 10  # Number of folds to cross validation
-c = 1
+FEA_ROOT = '../features/ComPare_2016/'
+MIXURE = 256
+CLASS_WEIGHT = 'balanced'
+KERNEL = 'linear'
+
+### ----------------------------  Load traiing data & devel data (fisher-encoded)  --------------------------------
+# Laod train Labels
+with open('../lab/label_train.pickle', 'rb') as handle:
+    content = pickle.load(handle)
+content = sorted(content.items())
+Label_train= np.array([x[1] for x in content])
+
+# Load train data
+mat = scipy.io.loadmat(FEA_ROOT+'FV_train_m'+str(MIXURE)+'.mat')
+Data_train = mat['FV_train']
+Data_train = Data_train[:,1:]
+
+# Laod devel Labels
+with open('../lab/label_devel.pickle', 'rb') as handle:
+    content = pickle.load(handle)
+content = sorted(content.items())
+Label_devel= np.array([x[1] for x in content])
+
+# Load devel data
+mat = scipy.io.loadmat(FEA_ROOT+'FV_devel_m'+str(MIXURE)+'.mat')
+Data_devel = mat['FV_devel']
+Data_devel = Data_devel[:,1:]
+
+
+##--------------------  Cross Validation  --------------------
+OutputReport = pd.DataFrame(columns=('Val_UAR', 'Val_Accuracy','Devel_UAR','Devel_Accuracy','Coeff'))
+VALID = 3  # Number of folds to cross validation
+Cs = [0.1,1,10]
 Percentile = range(10,110,10)
 
-# Import from .mat fisher vector
-mat = scipy.io.loadmat('../features2/1functional_Inter_nodiv.mat')
-feaData = mat['HrAudFunc']
-audioIdx = feaData[:,0]
-feaData = feaData[:,1:]
-feaData = pd.DataFrame(feaData,index=audioIdx)
-#mat = scipy.io.loadmat('../features/iHR_Label_0.mat')
-#label = pd.DataFrame(mat['Data'])
 
-# Import label
-labLoc = '../features2/label_Inter_1functional.xlsx'
-labels = pd.read_excel(labLoc, 0, index_col=0, header=0, na_values=['Nan'])   
-labels = labels.dropna(how='any')
-print 'Greater:',len(labels[(labels>0)].dropna()), 'Unchange:',len(labels[(labels==0)].dropna())
-
-
-# Fetch index 
-with pd.option_context('mode.use_inf_as_null', True):
-   feaData = feaData.dropna(how='any')
-#feaData = feaData.dropna(how='any')
-audioIdx = pd.Index(feaData.index)
-labIdx = pd.Index(labels.index)
-allIdx = labIdx.intersection(audioIdx)
-feaData = feaData.ix[allIdx]
-labels = labels.ix[allIdx]
-feaData = np.asmatrix(feaData)
-labels = np.asmatrix(labels)
-
-TestSize = int(len(labIdx)/VALID)
-TrainSize = len(labIdx)-TestSize
-Order = np.random.permutation(len(labels))
 
 print 'Start Cross Validation...'
-outputReport = pd.DataFrame(columns=('Spearman', 'Pearson', 'Rmse' , 'Coeff', 'UAR'))
-for per in Percentile:    # SELECT PERCENTILE 
-    Rmses = []
-    Spears = []
-    Pears = []
-    Uars = []
-    Predicts = []    
-    GroundTruths = []
-    
-    uar = []
-    for VAL in range(VALID):
-        print VAL, per
-        testIdx = Order[VAL*TestSize:(VAL+1)*TestSize]
-        mask = np.in1d(Order, testIdx)
-        trainIdx = Order[~mask]
-               
-        trainFea = feaData[trainIdx,:]
-        trainLab = labels[trainIdx,:]
-        testFea = feaData[testIdx,:]
-        testLab = labels[testIdx,:]
-        GroundTruths = GroundTruths+np.ravel(testLab).tolist()
-        
-        # Training and predicting using SVR 
-        clf = SVC(kernel='linear', C=c,class_weight='balanced') # LINEAR SVR
-        
+for c in Cs: 
+    for per in Percentile:
+        predict_val = []
+        groundTruth_val = []
+        uar_val = []
+        accu_val = []
 
-        # DO FEATURE SELECTION
-        fs = SelectPercentile(score_func=f_regression,percentile=per).fit(trainFea,np.ravel(trainLab))            
-        trainFea_FS = fs.transform(trainFea)
-        testFea_FS = fs.transform(testFea)        
-        fsVal = fs.get_support(indices=True)
-                
-        # Predicting
-        clf.fit(trainFea_FS, np.ravel(trainLab))   
-        predict = clf.predict(testFea_FS)
-        Predicts = Predicts+predict.tolist()
-               
-    # Evaluation        
-    conf = confusion_matrix(GroundTruths,Predicts, labels=[0,1])
-    Rmse = sqrt(mean_squared_error(GroundTruths, Predicts))
-    Spear = spearmanr(Predicts, GroundTruths)[0]
-    Pear = pearsonr(Predicts, GroundTruths)[0]
-    Uar = recall_score(GroundTruths, Predicts, average='macro')     
-    df = pd.DataFrame({'Spearman':str(round(Spear,3)), 'Pearson':str(round(Pear,3)), 'Rmse':str(round(Rmse,3)), 'Coeff':str(c), 'UAR':str(round(Uar,3))}, index=[per])
-    outputReport = pd.concat([outputReport,df])
+        ## ---- Use training data build the model and use CV to evaluate model  ----           
+        kf = KFold(n_splits=VALID)  #Cross-Validation
+        for train, test in kf.split(Label_train):
+            #("%s %s" % (train, test))
+            X_train, X_test, y_train, y_test = Data_train[train], Data_train[test], Label_train[train], Label_train[test]
+
+            # Select percentile
+            fs = SelectPercentile(score_func=f_regression,percentile=per).fit(X_train,y_train)            
+            X_train_FS = fs.transform(X_train)
+            X_test_FS = fs.transform(X_test)
+            
+            clf = SVC(kernel=KERNEL, C=c, class_weight=CLASS_WEIGHT, verbose=True)
+            clf.fit(X_train_FS, y_train)
+            y_predict = clf.predict(X_test_FS)
+            predict_val = predict_val + y_predict.tolist()
+            groundTruth_val = groundTruth_val + y_test.tolist()
+        
+        
+        ## ---- Use model built from trainig data to apply on developing data  ----
+        # Select percentile
+        fs = SelectPercentile(score_func=f_regression,percentile=per).fit(Data_train,Label_train)            
+        Data_train_FS = fs.transform(Data_train)
+        Data_devel_FS = fs.transform(Data_devel)
+        
+        # Modeling
+        clf = SVC(kernel=KERNEL, C=c, class_weight=CLASS_WEIGHT, verbose=True)
+        clf.fit(Data_train_FS, Label_train)
+        predict_devel = clf.predict(Data_devel_FS)
+        
+        
+        # Evaluate the model
+        uar_val = recall_score(groundTruth_val, predict_val, average='macro')     
+        accu_val = accuracy_score(groundTruth_val, predict_val)
+        uar_devel = recall_score(Label_devel, predict_devel, average='macro')     
+        accu_devel = accuracy_score(Label_devel, predict_devel)
+        df = pd.DataFrame({'Val_UAR':str(round(uar_val,3)), 'Val_Accuracy':str(round(accu_val,3)), 'Devel_UAR':str(round(uar_devel,3)), 'Devel_Accuracy':str(round(accu_devel,3)), 'Coeff':'C:'+str(c)+' Mixure: '+str(MIXURE)}, index=[per])
+        OutputReport = pd.concat([OutputReport,df])
 
 
 # Output to xls for record
-#outputReport = outputReport[['Spearman', 'Pearson', 'Rmse' , 'Coeff', 'UAR']]
-#outputReport.to_excel('../result2/1functional_Inter_prev_nodiv.xlsx',index=True, header=True)
+OutputReport = OutputReport[['Val_UAR', 'Devel_UAR','Val_Accuracy','Devel_Accuracy','Coeff']]
+OutputReport.to_excel('./result/fisher_'+str(MIXURE)+'.xlsx',index=True, header=True)
 print('Done')
 
 
