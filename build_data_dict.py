@@ -10,7 +10,6 @@ import numpy as np
 import numpy.matlib
 import pickle
 from scipy.io import savemat
-from scipy.io import loadmat
 
 
 FEA_ROOT = '../features/ComPare_2016/'
@@ -29,7 +28,7 @@ f = open(DATA_TRAIN_PATH, 'r')
 reader = csv.reader(f)
 headers = reader.next()
 FeaName = ';'.join(headers).split(';')
-print 'There dimension of the feature is',len(FeaName)-1
+print 'The dimension of the feature is',len(FeaName)-1
 
 for row in reader:  
     r = ';'.join(row).split(';')
@@ -54,7 +53,7 @@ for index, (key, value) in enumerate(sorted(Data_Train.items())):
     print index, key, Label_train[key]
 savemat(FEA_ROOT+'train4FV', mdict={'Data_train': Train_mat}, appendmat=True)
 
-#saEA_ROOT+'train4FV', mdict={'Data_Train':Data_Train}, appendmat=True)
+#savemat(FEA_ROOT+'train4FV', mdict={'Data_Train':Data_Train}, appendmat=True)
 
 
 

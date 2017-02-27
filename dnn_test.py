@@ -6,7 +6,6 @@ Created on Tue Feb 21 09:59:52 2017
 """
 
 #import keras
-import theano
 from keras.models import Sequential
 from keras.layers.core import Dense, Activation
 from keras.optimizers import SGD, Adam, RMSprop, Adagrad
@@ -77,7 +76,6 @@ model.summary()
 
 # 指定 loss function 和 optimizier
 sgd = SGD(lr=0.01,momentum=0.0,decay=0.0,nesterov=False)
-adam = Adam(lr=0.01)
 model.compile(loss='binary_crossentropy',optimizer=sgd, metrics=['accuracy'])
 
 
@@ -85,7 +83,7 @@ model.compile(loss='binary_crossentropy',optimizer=sgd, metrics=['accuracy'])
 history = model.fit(Data_train, Label_train,
                     batch_size=32,
                     verbose=1,
-                    nb_epoch=30,
+                    nb_epoch=15,
                     validation_data = (Data_devel, Label_devel))
 Predict_devel = model.predict(Data_devel, batch_size=32, verbose=1)
 weight = model.get_weights()
@@ -98,22 +96,22 @@ uar_devel, accu_devel = getScore(Label_devel, Predict_devel)
 print 'UAR:', uar_devel, 'Accuracy:', accu_devel            # Keras binary_accuracy = accuracy
 
 # plot
-plt.figure()
+plt.figure() 
 p1 = plt.subplot(121)
 p2 = plt.subplot(122)
 
-p1.plot(history.history['accuracy'])
-p1.plot(history.history['accuracy'])
-p2.plot(history.history['loss'])
-p2.plot(history.history['val_loss'])
+p1.plot(history.history['loss'])
+p1.plot(history.history['val_loss'])
+p2.plot(history.history['acc'])
+p2.plot(history.history['val_acc'])
 
-p1.set_title('Model Accuracy')
-p1.set_ylabel('Accuracy')
+p1.set_title('Model Loss')
+p1.set_ylabel('loss')
 p1.set_xlabel('Epoches')
 p1.legend(['train', 'devel'], loc='upper right')
-
-p2.set_title('Model Loss')
-p2.set_ylabel('loss')
+p2.set_title('Model Accuracy')
+p2.set_ylabel('Accuracy')
 p2.set_xlabel('Epoches')
 p2.legend(['train', 'devel'], loc='upper right')
+
 plt.show()

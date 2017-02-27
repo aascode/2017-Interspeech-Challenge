@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Sun Feb 26 13:54:57 2017
+
+@author: HGY
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Tue Jan 03 12:25:13 2017
 Classifier for functional mat input
 @author: HGY
@@ -47,38 +54,17 @@ Data_devel = Data_devel[:,1:]
 
 
 ##--------------------  Cross Validation  --------------------
-OutputReport = pd.DataFrame(columns=('Val_UAR', 'Val_Accuracy','Devel_UAR','Devel_Accuracy','Coeff'))
+OutputReport_noCV = pd.DataFrame(columns=('Devel_UAR','Devel_Accuracy','Coeff'))
+
 VALID = 3  # Number of folds to cross validation
-Cs = [0.1,1,10]
-Percentile = range(100,110,10)
+Cs = [10]
+Percentile = range(10,110,10)
 
 
 
 print 'Start Cross Validation...'
 for c in Cs: 
     for per in Percentile:
-        predict_val = []
-        groundTruth_val = []
-        uar_val = []
-        accu_val = []
-
-        ## ---- Use training data build the model and use CV to evaluate model  ----           
-        kf = KFold(n_splits=VALID)  #Cross-Validation
-        for train, test in kf.split(Label_train):
-            #("%s %s" % (train, test))
-            X_train, X_test, y_train, y_test = Data_train[train], Data_train[test], Label_train[train], Label_train[test]
-
-            # Select percentile
-            fs = SelectPercentile(score_func=f_classif,percentile=per).fit(X_train,y_train)            
-            X_train_FS = fs.transform(X_train)
-            X_test_FS = fs.transform(X_test)
-            
-            clf = SVC(kernel=KERNEL, C=c, class_weight=CLASS_WEIGHT, verbose=True)
-            clf.fit(X_train_FS, y_train)
-            y_predict = clf.predict(X_test_FS)
-            predict_val = predict_val + y_predict.tolist()
-            groundTruth_val = groundTruth_val + y_test.tolist()
-        
         
         ## ---- Use model built from trainig data to apply on developing data  ----
         # Select percentile
@@ -93,17 +79,15 @@ for c in Cs:
         
         
         # Evaluate the model
-        uar_val = recall_score(groundTruth_val, predict_val, average='macro')     
-        accu_val = accuracy_score(groundTruth_val, predict_val)
         uar_devel = recall_score(Label_devel, predict_devel, average='macro')     
         accu_devel = accuracy_score(Label_devel, predict_devel)
-        df = pd.DataFrame({'Val_UAR':str(round(uar_val,3)), 'Val_Accuracy':str(round(accu_val,3)), 'Devel_UAR':str(round(uar_devel,3)), 'Devel_Accuracy':str(round(accu_devel,3)), 'Coeff':'C:'+str(c)+' Mixure: '+str(MIXURE)}, index=[per])
-        OutputReport = pd.concat([OutputReport,df])
+        df = pd.DataFrame({'Devel_UAR':str(round(uar_devel,3)), 'Devel_Accuracy':str(round(accu_devel,3)), 'Coeff':'C:'+str(c)+' Mixure: '+str(MIXURE)}, index=[per])
+        OutputReport_noCV = pd.concat([OutputReport_noCV,df])
 
 
 # Output to xls for record
-OutputReport = OutputReport[['Val_UAR', 'Devel_UAR','Val_Accuracy','Devel_Accuracy','Coeff']]
-OutputReport.to_excel('./result/fisher_fclassif_'+str(MIXURE)+'.xlsx',index=True, header=True)
+OutputReport_noCV = OutputReport_noCV[['Devel_UAR','Devel_Accuracy','Coeff']]
+OutputReport_noCV.to_excel('./result/FV_noCV_'+str(MIXURE)+'.xlsx',index=True, header=True)
 print('Done')
 #
 #
