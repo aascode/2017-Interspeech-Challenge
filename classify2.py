@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Feb 26 13:54:57 2017
+Created on Sat Mar 04 22:15:18 2017
 
 @author: HGY
 """
@@ -13,60 +13,42 @@ from sklearn.feature_selection import SelectPercentile, f_classif
 from sklearn.svm import SVC
 from sklearn.metrics import recall_score
 from sklearn.metrics import accuracy_score
-import scipy.io
 from sklearn.metrics import confusion_matrix
 from scipy import stats
 
 
-FEA_ROOT = '../features/ComPare_2016/matlab/'
-MIXURE = 64
+FEA_ROOT = '../features/ComPare_2016/FV/'
+GMM = 'train_balance5'
+TRAIN_TARGET = 'train_balance5'
+TEST_TARGET = 'test_balance5'
+MIXURE = 128
 CLASS_WEIGHT = 'balanced'
 KERNEL = 'linear'
 ZNORM = False
 SIGNORM = False
 L2NORM = False
-OUT_NAME = './result/FV_'+str(MIXURE)
+OUT_NAME = './result/FV_'+GMM+'_'+str(MIXURE)
 
 
 ### ----------------------------  Load traiing data & test data (fisher-encoded)  --------------------------------
-# Laod train Labels
-with open('../lab/label_train.pickle', 'rb') as handle:
-    content = pickle.load(handle)
-content = sorted(content.items())
-Label_train= np.array([x[1] for x in content])
+# Laod data 
+with open(FEA_ROOT+'FV_'+GMM+'_'+TRAIN_TARGET+'_m'+str(MIXURE)+'.pickle', 'rb') as handle:
+    Data_train = pickle.load(handle)
+with open(FEA_ROOT+'FV_'+GMM+'_'+TEST_TARGET+'_m'+str(MIXURE)+'.pickle', 'rb') as handle:
+    Data_test = pickle.load(handle)
+                                                                
+Data_train = Data_train.as_matrix()
+Data_test = Data_test.as_matrix()
 
-# Load train data
-mat = scipy.io.loadmat(FEA_ROOT+'FV_train_m'+str(MIXURE)+'.mat')
-Data_train = mat['FV_train']
-Data_train = Data_train[:,1:]
-
-# Laod test Labels
-with open('../lab/label_devel.pickle', 'rb') as handle:
-    content = pickle.load(handle)
-content = sorted(content.items())
-Label_test= np.array([x[1] for x in content])
-
-# Load test data
-mat = scipy.io.loadmat(FEA_ROOT+'FV_devel_m'+str(MIXURE)+'.mat')
-Data_test = mat['FV_devel']
-Data_test = Data_test[:,1:]
-
-
-### swith train/test for testing
-#tmp = Data_test
-#Data_test = Data_train
-#Data_train = tmp
-#tmp = Label_test
-#Label_test = Label_train
-#Label_train = tmp
-
-
+Label_train = Data_train[:,-1]
+Label_test = Data_test[:,-1]
+Data_train = Data_train[:,:-1]
+Data_test = Data_test[:,:-1]
 
 ##--------------------  Fisher Vector Normalizations  --------------------
 def FISHER_NORM(Data_train, Data_test, ZNORM, SIGNORM, L2NORM, OUT_NAME):
-    import math
     def sigmoid(x):
-      return 1 / (1 + math.exp(-x))
+      return 1 / (1 + np.exp(-x))
     
     def sigmoid2D(x):
         return map(sigmoid,x)  
@@ -83,6 +65,8 @@ def FISHER_NORM(Data_train, Data_test, ZNORM, SIGNORM, L2NORM, OUT_NAME):
         print 'Apply element-wise sigmoid normalization!'
         Data_train = np.apply_along_axis(sigmoid2D, 0, Data_train)
         Data_test = np.apply_along_axis(sigmoid2D, 0, Data_test)
+        Data_train = np.nan_to_num(Data_train) #prevent nan values
+        Data_test = np.nan_to_num(Data_test)    
         OUT_NAME = OUT_NAME+'_Signorm'
 
     if L2NORM:
@@ -126,7 +110,7 @@ for c in Cs:
 
 # Output to xls for record
 OutputReport_noCV = OutputReport_noCV[['Test_UAR','Test_Accuracy','Coeff']]
-OutputReport_noCV.to_excel(OUT_NAME+'_switch.xlsx',index=True, header=True)
+OutputReport_noCV.to_excel(OUT_NAME+'.xlsx',index=True, header=True)
 print('Done')
 #
 #

@@ -6,7 +6,6 @@ Created on Tue Feb 28 16:35:42 2017
 """
 
 import os
-import random
 
 ## ----------------------------  Parameters  --------------------------------
 SR = 22050  #sampling rate
@@ -16,21 +15,38 @@ FMIN = 50
 FMAX = 11000
 BANDS = 80
 WAV_TRAIN_ROOT = ('../../wav/train_sample/')
-WAV_DEST_ROOT = ('../../wav/devel_sample/')
+WAV_DEVEL_ROOT = ('../../wav/devel_sample/')
+SPEC_OUT_TRAIN = ('../../features/Spectrogram/train_sample/')
+SPEC_OUT_DEVEL = ('../../features/Spectrogram/devel_sample/')
 
 
-
-## ----------------------------  Constants  --------------------------------
+## ----------------------------  Generate spectrogram feature as .h5  <Train_sample>--------------------------------
 TrainList = []
 for root, dirs, files in os.walk(WAV_TRAIN_ROOT):
     for file in files:
         if file.endswith(".wav"):
              TrainList.append(os.path.split(file)[1])
-        
-path = os.path.abspath(TrainList[0])
+TrainList = sorted(TrainList)
 
-extract_melspect.py --channels=mix-after -r ${SR} -f ${FPS} -l ${FFTLEN} -t mel -m ${FMIN} -M ${FMAX} -b ${BANDS} -s log --featname "features" --include-times --times-mode=borders "$f" "$o"; then
+for fileName in TrainList:
+    print fileName
+    extract_melspect = ('python extract_melspect.py --channels=mix-after -r '+str(SR)+' -f '+str(FPS)+' -l '+str(FFTLEN)+' -t mel -m '+str(FMIN)+' -M '+str(FMAX)+' \
+                        -b '+str(BANDS)+' -s log --featname "features" --include-times --times-mode=borders \
+                        '+WAV_TRAIN_ROOT+fileName+' '+SPEC_OUT_TRAIN+fileName.split('.')[0]+'.h5')
+    os.system(extract_melspect)
 
-                                             
-extract_melspect.py --channels=mix-after -r 22050 -f 70 -l 1024 -t mel -m 50 -M 11000 -b 80 -s log --featname "features" --include-times --times-mode=borders ../../wav/train_sample/train_0008.wav ../../features/SPEC/train_008.h5
 
+## ----------------------------  Generate spectrogram feature as .h5 <Devel_sample> --------------------------------
+Devel_List = []
+for root, dirs, files in os.walk(WAV_DEVEL_ROOT):
+    for file in files:
+        if file.endswith(".wav"):
+             Devel_List.append(os.path.split(file)[1])
+Devel_List = sorted(Devel_List)
+
+for fileName in Devel_List:
+    print fileName
+    extract_melspect = ('python extract_melspect.py --channels=mix-after -r '+str(SR)+' -f '+str(FPS)+' -l '+str(FFTLEN)+' -t mel -m '+str(FMIN)+' -M '+str(FMAX)+' \
+                        -b '+str(BANDS)+' -s log --featname "features" --include-times --times-mode=borders \
+                        '+WAV_DEVEL_ROOT+fileName+' '+SPEC_OUT_DEVEL+fileName.split('.')[0]+'.h5')
+    os.system(extract_melspect)
